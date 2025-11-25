@@ -1,54 +1,58 @@
-// This component is responsible for disovering new containers within the docker environment
+// Discover Docker containers
 discovery.docker "default" {
-	host = "unix:///var/run/docker.sock"
-	refresh_interval = "5s"
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
 }
 
-// This component is responsible for relabeling the discovered containers
+// Relabel discovered containers
 discovery.relabel "default" {
-	targets = []
+  targets = discovery.docker.default.targets
 
-	rule {
-		source_labels = ["__meta_docker_container_name"]
-		regex         = "/(.*)"
-		target_label  = "container"
-	}
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
 }
 
-// This component is responsible for collecting logs from the discovered containers
+// Collect logs from docker
 loki.source.docker "default" {
-	host             = "unix:///var/run/docker.sock"
-	targets          = discovery.docker.default.targets
-	forward_to       = [loki.process.default.receiver]
-	relabel_rules    = discovery.relabel.default.rules
-	refresh_interval = "5s"
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.docker.default.targets
+  forward_to       = [loki.process.default.receiver]
+  relabel_rules    = discovery.relabel.default.rules
+  refresh_interval = "5s"
 }
 
-// This component is responsible for processing the logs (In this case adding static labels)
+// Process logs
 loki.process "default" {
-    stage.static_labels {
+  stage.static_labels {
     values = {
-      env = "production",
+      env = "production"
     }
-}
-    forward_to = [loki.write.default.receiver]
+  }
+
+  forward_to = [loki.write.default.receiver]
 }
 
-// This component is responsible for writing the logs to Loki
+// Write logs to Loki
 loki.write "default" {
-	endpoint {
-		url  = env("LOKI_BASE_URL) + "/api/v1/push"
+  endpoint {
+    url = env("LOKI_BASE_URL") + "/api/v1/push"
+
     basic_auth {
       username = env("LOKI_USERNAME")
       password = env("LOKI_PASSWORD")
-     }
-	}
+    }
+  }
 }
 
-//metrics
+//
+// Metrics - Node Exporter
+//
 prometheus.exporter.unix "integrations_node_exporter" {
   disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
-  enable_collectors = ["meminfo"]
+  enable_collectors  = ["meminfo"]
 
   filesystem {
     fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
@@ -65,6 +69,7 @@ prometheus.exporter.unix "integrations_node_exporter" {
   }
 }
 
+// Relabel node exporter metrics
 discovery.relabel "integrations_node_exporter" {
   targets = prometheus.exporter.unix.integrations_node_exporter.targets
 
@@ -75,10 +80,11 @@ discovery.relabel "integrations_node_exporter" {
 
   rule {
     target_label = "job"
-    replacement = "integrations/node_exporter"
+    replacement  = "integrations/node_exporter"
   }
 }
 
+// Journal logs metadata relabeling
 discovery.relabel "logs_integrations_integrations_node_exporter_journal_scrape" {
   targets = []
 
@@ -103,23 +109,26 @@ discovery.relabel "logs_integrations_integrations_node_exporter_journal_scrape" 
   }
 }
 
+// Scrape node exporter metrics
 prometheus.scrape "integrations_node_exporter" {
   scrape_interval = "15s"
   targets    = discovery.relabel.integrations_node_exporter.output
   forward_to = [prometheus.remote_write.local.receiver]
 }
 
+// Remote write to Prometheus
 prometheus.remote_write "local" {
   endpoint {
-    url  = env("PROMETHEUS_BASE_URL) + "/api/v1/write"
+    url = env("PROMETHEUS_BASE_URL") + "/api/v1/write"
+
     basic_auth {
       username = env("PROMETHEUS_USERNAME")
       password = env("PROMETHEUS_PASSWORD")
-     }
+    }
   }
 }
 
-// Enables the ability to view logs in the Alloy UI in realtime
+// Enable Alloy live debugging
 livedebugging {
   enabled = true
 }
