@@ -1,0 +1,116 @@
+volumes:
+  alloy-data:
+    name: alloy-data
+  loki-data:
+    name: loki-data
+  prometheus-data:
+    name: prometheus-data
+  grafana-data:
+    name: grafana-data
+  traefik-acme:
+    name: traefik-acme
+
+services:
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    restart: always
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.filename=/etc/traefik/config.yml
+      - --entryPoints.web.address=:80
+      - --entryPoints.websecure.address=:443
+      - --certificatesResolvers.le.acme.email=${TRAEFIK_LETSENCRYPT_EMAIL}
+      - --certificatesResolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesResolvers.le.acme.tlschallenge=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/config.yml:/etc/traefik/config.yml:ro
+      - traefik-acme:/letsencrypt
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ${PROMETHEUS_CONTAINER}
+    restart: always
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    command:
+      - --web.enable-remote-write-receiver
+      - --config.file=/etc/prometheus/prometheus.yml
+    env_file:
+      - .env
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`${DOMAIN}`) && PathPrefix(`/prometheus`)"
+      - "traefik.http.routers.prometheus.entrypoints=websecure"
+      - "traefik.http.routers.prometheus.tls=true"
+      - "traefik.http.routers.prometheus.tls.certresolver=le"
+      - "traefik.http.routers.prometheus.middlewares=prometheus-strip@docker,prometheus-auth@file"
+      - "traefik.http.middlewares.prometheus-strip.stripPrefix.prefixes=/prometheus"
+
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: ${LOKI_CONTAINER}
+    restart: unless-stopped
+    ports:
+      - "${LOKI_PORT}:3100"
+    env_file:
+      - .env
+    volumes:
+      - ./config/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml -config.expand-env=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.loki.rule=Host(`${DOMAIN}`) && PathPrefix(`/loki`)"
+      - "traefik.http.routers.loki.entrypoints=websecure"
+      - "traefik.http.routers.loki.tls=true"
+      - "traefik.http.routers.loki.tls.certresolver=le"
+      - "traefik.http.routers.loki.middlewares=loki-strip@docker,loki-auth@file"
+      - "traefik.http.middlewares.loki-strip.stripPrefix.prefixes=/loki"
+
+  alloy:
+    image: grafana/alloy:v1.7.5
+    container_name: ${ALLOY_CONTAINER}
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./config/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    depends_on:
+      - loki
+      - prometheus
+
+  grafana:
+    image: grafana/grafana:12.1
+    container_name: ${GRAFANA_CONTAINER}
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    volumes:
+      - ./config/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./config/dashboard.yaml:/etc/grafana/provisioning/dashboards/dashboard.yaml
+      - ./config/dashboard.json:/var/lib/grafana/dashboards/dashboard.json
+    depends_on:
+      - prometheus
+      - loki
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.tls.certresolver=le"
+      - "traefik.http.routers.grafana.middlewares=grafana-strip@docker,grafana-auth@file"
+      - "traefik.http.middlewares.grafana-strip.stripPrefix.prefixes=/grafana"
