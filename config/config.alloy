@@ -28,7 +28,7 @@ loki.source.docker "default" {
 loki.process "default" {
   stage.static_labels {
     values = {
-      env = "production"
+      env = "production",
     }
   }
 
