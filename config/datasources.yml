@@ -3,7 +3,7 @@ datasources:
   - name: Prometheus
     type: prometheus
     access: proxy
-    url: http://${PROMETHEUS_BASE_URL}:${PROMETHEUS_PORT}
+    url: ${PROMETHEUS_BASE_URL}:${PROMETHEUS_PORT}
     isDefault: true
     basicAuth: true
     basicAuthUser: ${PROMETHEUS_USERNAME}
@@ -12,7 +12,7 @@ datasources:
     type: loki
     access: proxy
     orgId: 1
-    url: 'http://${LOKI_BASE_URL}:${LOKI_PORT}'
+    url: '${LOKI_BASE_URL}:${LOKI_PORT}'
     version: 1
     editable: true
     basicAuth: true
