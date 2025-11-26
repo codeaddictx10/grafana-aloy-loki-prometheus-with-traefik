@@ -5,9 +5,6 @@ datasources:
     access: proxy
     url: ${PROMETHEUS_BASE_URL}
     isDefault: true
-    basicAuth: true
-    basicAuthUser: ${PROMETHEUS_USERNAME}
-    basicAuthPassword: ${PROMETHEUS_PASSWORD}
   - name: Loki
     type: loki
     access: proxy
@@ -15,6 +12,3 @@ datasources:
     url: '${LOKI_BASE_URL}/loki'
     version: 1
     editable: true
-    basicAuth: true
-    basicAuthUser: ${LOKI_USERNAME}
-    basicAuthPassword: ${LOKI_PASSWORD}

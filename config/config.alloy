@@ -39,11 +39,6 @@ loki.process "default" {
 loki.write "default" {
   endpoint {
     url = "http://loki:3100/loki/api/v1/push"
-
-    basic_auth {
-      username = sys.env("LOKI_USERNAME")
-      password = sys.env("LOKI_PASSWORD")
-    }
   }
 }
 
@@ -120,11 +115,6 @@ prometheus.scrape "integrations_node_exporter" {
 prometheus.remote_write "local" {
   endpoint {
     url = sys.env("PROMETHEUS_BASE_URL") + "/api/v1/write"
-
-    basic_auth {
-      username = sys.env("PROMETHEUS_USERNAME")
-      password = sys.env("PROMETHEUS_PASSWORD")
-    }
   }
 }
 
