@@ -1,0 +1,151 @@
+// Discover Docker containers
+discovery.docker "default" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// Relabel discovered containers
+discovery.relabel "default" {
+  targets = discovery.docker.default.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    target_label = "server"
+    replacement  = std.coalesce(sys.env("SERVER_NAME"), constants.hostname)
+  }
+}
+
+// Collect logs from docker
+loki.source.docker "default" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.docker.default.targets
+  forward_to       = [loki.process.default.receiver]
+  relabel_rules    = discovery.relabel.default.rules
+  refresh_interval = "5s"
+}
+
+// Process logs
+loki.process "default" {
+  stage.static_labels {
+    values = {
+      server = std.coalesce(sys.env("SERVER_NAME"), constants.hostname),
+      env    = std.coalesce(sys.env("ENVIRONMENT"), "production"),
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// Write logs to Loki via Traefik with basicAuth
+loki.write "default" {
+  endpoint {
+    url = "https://" + sys.env("MONITORING_DOMAIN") + "/loki/api/v1/push"
+    
+    basic_auth {
+      username = std.coalesce(sys.env("MONITORING_USERNAME"), "remote")
+      password = sys.env("MONITORING_PASSWORD")
+    }
+  }
+}
+
+//
+// Metrics - Node Exporter
+//
+prometheus.exporter.unix "integrations_node_exporter" {
+  disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
+  enable_collectors  = ["meminfo"]
+
+  filesystem {
+    fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+    mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+)($|/)"
+    mount_timeout        = "5s"
+  }
+
+  netclass {
+    ignored_devices = "^(veth.*|cali.*|[a-f0-9]{15})$"
+  }
+
+  netdev {
+    device_exclude = "^(veth.*|cali.*|[a-f0-9]{15})$"
+  }
+}
+
+// Relabel node exporter metrics
+discovery.relabel "integrations_node_exporter" {
+  targets = prometheus.exporter.unix.integrations_node_exporter.targets
+
+  rule {
+    target_label = "instance"
+    replacement  = std.coalesce(sys.env("SERVER_NAME"), constants.hostname)
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "integrations/node_exporter"
+  }
+
+  rule {
+    target_label = "server"
+    replacement  = std.coalesce(sys.env("SERVER_NAME"), constants.hostname)
+  }
+
+  rule {
+    target_label = "env"
+    replacement  = std.coalesce(sys.env("ENVIRONMENT"), "production")
+  }
+}
+
+// Journal logs metadata relabeling
+discovery.relabel "logs_integrations_integrations_node_exporter_journal_scrape" {
+  targets = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+
+  rule {
+    source_labels = ["__journal__boot_id"]
+    target_label  = "boot_id"
+  }
+
+  rule {
+    source_labels = ["__journal__transport"]
+    target_label  = "transport"
+  }
+
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+}
+
+// Scrape node exporter metrics
+prometheus.scrape "integrations_node_exporter" {
+  scrape_interval = "15s"
+  targets         = discovery.relabel.integrations_node_exporter.output
+  forward_to      = [prometheus.remote_write.local.receiver]
+}
+
+// Remote write to Prometheus via Traefik with basicAuth
+prometheus.remote_write "local" {
+  endpoint {
+    url = "https://" + sys.env("MONITORING_DOMAIN") + "/prometheus/api/v1/write"
+    
+    basic_auth {
+      username = std.coalesce(sys.env("MONITORING_USERNAME"), "remote")
+      password = sys.env("MONITORING_PASSWORD")
+    }
+  }
+}
+
+// Enable Alloy live debugging (optional, can be disabled in production)
+livedebugging {
+  enabled = false
+}
+
