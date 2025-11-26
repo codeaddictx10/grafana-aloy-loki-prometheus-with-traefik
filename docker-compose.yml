@@ -57,7 +57,7 @@ services:
       - "traefik.http.middlewares.prometheus-strip.stripPrefix.prefixes=/prometheus"
 
   loki:
-    image: grafana/loki:3.4.2
+    image: grafana/loki:3.5.8
     container_name: ${LOKI_CONTAINER}
     restart: unless-stopped
     # ports:
