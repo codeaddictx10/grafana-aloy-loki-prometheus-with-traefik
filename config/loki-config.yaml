@@ -69,7 +69,7 @@ schema_config:
 pattern_ingester:
     enabled: true
     metric_aggregation:
-        loki_address: http://loki:3100
+        loki_address: loki:3100
 
 ruler:
     enable_alertmanager_discovery: true
