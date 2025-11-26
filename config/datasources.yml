@@ -9,6 +9,6 @@ datasources:
     type: loki
     access: proxy
     orgId: 1
-    url: '${LOKI_BASE_URL}/loki'
+    url: 'http://loki:3100/loki'
     version: 1
     editable: true
