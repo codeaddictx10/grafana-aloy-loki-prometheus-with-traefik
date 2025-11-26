@@ -38,7 +38,7 @@ loki.process "default" {
 // Write logs to Loki
 loki.write "default" {
   endpoint {
-    url = sys.env("LOKI_BASE_URL") + "/api/v1/push"
+    url = sys.env("LOKI_BASE_URL") + "loki/api/v1/push"
 
     basic_auth {
       username = sys.env("LOKI_USERNAME")
