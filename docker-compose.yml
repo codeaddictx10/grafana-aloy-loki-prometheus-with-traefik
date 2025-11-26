@@ -78,7 +78,7 @@ services:
       - "traefik.http.middlewares.loki-strip.stripPrefix.prefixes=/loki"
 
   alloy:
-    image: grafana/alloy:v1.7.5
+    image: grafana/alloy:v1.11.3
     container_name: ${ALLOY_CONTAINER}
     restart: unless-stopped
     env_file:
