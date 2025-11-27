@@ -16,7 +16,7 @@ discovery.relabel "default" {
 
   rule {
     target_label = "server"
-    replacement  = std.coalesce(sys.env("SERVER_NAME"), constants.hostname)
+    replacement  = coalesce(sys.env("SERVER_NAME"), constants.hostname)
   }
 }
 
@@ -33,8 +33,8 @@ loki.source.docker "default" {
 loki.process "default" {
   stage.static_labels {
     values = {
-      server = std.coalesce(sys.env("SERVER_NAME"), constants.hostname),
-      env    = std.coalesce(sys.env("ENVIRONMENT"), "production"),
+      server = coalesce(sys.env("SERVER_NAME"), constants.hostname),
+      env    = coalesce(sys.env("ENVIRONMENT"), "production"),
     }
   }
 
@@ -44,10 +44,10 @@ loki.process "default" {
 // Write logs to Loki via Traefik with basicAuth
 loki.write "default" {
   endpoint {
-    url = "https://" + sys.env("MONITORING_DOMAIN") + "/loki/api/v1/push"
+    url = "https://" + sys.env("MONITORING_DOMAIN") + "/loki/loki/api/v1/push"
     
     basic_auth {
-      username = std.coalesce(sys.env("MONITORING_USERNAME"), "remote")
+      username = coalesce(sys.env("MONITORING_USERNAME"), "remote")
       password = sys.env("MONITORING_PASSWORD")
     }
   }
@@ -81,7 +81,7 @@ discovery.relabel "integrations_node_exporter" {
 
   rule {
     target_label = "instance"
-    replacement  = std.coalesce(sys.env("SERVER_NAME"), constants.hostname)
+    replacement  = coalesce(sys.env("SERVER_NAME"), constants.hostname)
   }
 
   rule {
@@ -91,12 +91,12 @@ discovery.relabel "integrations_node_exporter" {
 
   rule {
     target_label = "server"
-    replacement  = std.coalesce(sys.env("SERVER_NAME"), constants.hostname)
+    replacement  = coalesce(sys.env("SERVER_NAME"), constants.hostname)
   }
 
   rule {
     target_label = "env"
-    replacement  = std.coalesce(sys.env("ENVIRONMENT"), "production")
+    replacement  = coalesce(sys.env("ENVIRONMENT"), "production")
   }
 }
 
@@ -138,7 +138,7 @@ prometheus.remote_write "local" {
     url = "https://" + sys.env("MONITORING_DOMAIN") + "/prometheus/api/v1/write"
     
     basic_auth {
-      username = std.coalesce(sys.env("MONITORING_USERNAME"), "remote")
+      username = coalesce(sys.env("MONITORING_USERNAME"), "remote")
       password = sys.env("MONITORING_PASSWORD")
     }
   }

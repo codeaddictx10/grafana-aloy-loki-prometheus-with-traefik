@@ -1,0 +1,20 @@
+volumes:
+  alloy-data:
+
+services:
+  alloy:
+    image: grafana/alloy:v1.11.3
+    container_name: alloy
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./config/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    command: >
+      run
+        --server.http.listen-addr=0.0.0.0:12345
+        --storage.path=/var/lib/alloy/data
+        /etc/alloy/config.alloy
+
