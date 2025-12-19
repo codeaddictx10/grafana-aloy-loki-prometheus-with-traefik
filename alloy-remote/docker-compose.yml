@@ -6,11 +6,14 @@ services:
     image: grafana/alloy:v1.11.3
     container_name: alloy
     restart: unless-stopped
+    pid: host
+    network_mode: host
     env_file:
       - .env
     volumes:
       - ./config/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host:ro,rslave
       - alloy-data:/var/lib/alloy/data
     command: >
       run

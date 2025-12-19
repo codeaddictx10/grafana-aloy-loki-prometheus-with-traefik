@@ -57,6 +57,7 @@ loki.write "default" {
 // Metrics - Node Exporter
 //
 prometheus.exporter.unix "integrations_node_exporter" {
+  path.rootfs = "/host"
   disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
   enable_collectors  = ["meminfo"]
 
